@@ -1,8 +1,10 @@
 #ifndef ACTOR_H_
 #define ACTOR_H_
 
+
+//QUESTION/NOTE: do i need a pointer to studentWorld for every actor or just for socrates???
 #include "GraphObject.h"
-#include "GameWorld.h" //am i allowed to do this
+#include "GameWorld.h" //QUESTION: am i allowed to do this
 //just for debugging
 #include <iostream>
 using namespace std;
@@ -18,10 +20,11 @@ public:
     }
     
     GameWorld* getWorld() {return pStudentWorld;}
-    
     bool isAlive() {return alive;}
+    void kill() {alive = false;}
     
-    virtual void doSomething() = 0;
+    virtual bool isDamageable(){return false;}
+    virtual void doSomething(){}
     
 private:
     GameWorld* pStudentWorld;
@@ -39,73 +42,149 @@ public:
         sprayCharges = 20;
         flameThrowerCharges = 5;
     }
-    virtual void doSomething() {
-        //If Socrates is not alive, return immediately (not a specific Part 1 requirement)
-        if (!isAlive())
-            return;
-        
-        int ch;
-        if (getWorld()->getKey(ch))
-        {
-            double x, y;
-            const double PI = 4 * atan(1);
-            switch (ch) {
-                case KEY_PRESS_RIGHT: //move socrates
-                    x = 128 + 128 *cos( (getDirection()-180-5) *1.0 / 360 * 2 * PI);
-                    y = 128 + 128 *sin( (getDirection()-180-5) *1.0 / 360 * 2 * PI);
-                    moveTo(x, y);
-                    setDirection(getDirection()-5);
-                    break;
-                case KEY_PRESS_LEFT:
-                    x = 128 + 128 *cos( (getDirection()-180+5) *1.0 / 360 * 2 * PI);
-                    y = 128 + 128 *sin( (getDirection()-180+5) *1.0 / 360 * 2 * PI);
-                    moveTo(x, y);
-                    setDirection(getDirection()+5);
-                    break;
-                case KEY_PRESS_UP:
-                        moveAngle(90, 128);
-                        break;
-                case KEY_PRESS_DOWN:
-                    moveAngle(-90, 128);
-                    break;
-                    
-                default:
-                    break;
-            }
-        }
-        
-        /*
-        Get user input; if player pressed a key, perform the desired action
-        If directional keys: move Socrates by 5 degrees in positional angle either clockwise or counterclockwise, and set the direction he is facing
-        Other keys (space to use spray, enter to use flamethrower): not Part 1 req
-        If player DID NOT press key: (not Part 1 req)
-        Replenish spray charges by 1 (if not already at maximum of 20 charges)*/
-
-        
-        
-    }
+    
+    virtual void doSomething();
+    
 private:
     int positionalAngle;
     int health;
     int sprayCharges;
     int flameThrowerCharges;
-        
 };
 
-class Dirt: public Actor
+//FOOD CLASS
+class Food: public Actor
 {
 public:
-    Dirt(double x, double y, GameWorld *p): Actor(IID_DIRT, x, y, 90, 1, p)
+    Food(double x, double y, GameWorld *p): Actor(IID_FOOD, x, y, 90, 1, p)
     {}
-    
-    virtual void doSomething() {}//do nothing
-    
-    
-    //Dirt piles can be damaged. A single spray or flame that hits the dirt pile will destroy it (and cause the spray/flame to dissipate once it has hit the pile).
-    //Dirt piles block the movement of all bacteria (the Euclidean distance of the bacterium and of the dirt pile must not be less than SPRITE_WIDTH/2 pixels from each other).
-    //Dirt piles block the movement of all spray and flames.
-    
 };
+
+//DAMAGEABLE CLASS - base class for dirt, bacteria, fungi, goodie
+class Damageable: public Actor
+{
+public:
+    Damageable(int imageID, double x, double y, GameWorld *p): Actor(imageID, x, y, 0, 1, p) {setHealth(0);}
+    void setHealth(int h) {health = h;}
+    int getHealth() {return health;}
+    
+    virtual bool isDamageable(){return true;}
+    virtual void receiveDamage(int hitPoints) {health -= hitPoints;}
+private:
+    int health;
+};
+
+//DIRT CLASS
+class Dirt: public Damageable
+{
+public:
+    Dirt(double x, double y, GameWorld *p): Damageable(IID_DIRT, x, y, p)
+    {}
+    //if dirt recieves damage, automatically killed
+    virtual void recieveDamage(int hitPoints) {kill();}
+};
+
+
+
+//LIFETIME CLASS -- base class for goodies (restore health, flame thrower, extralife) and fungus
+class Lifetime: public Damageable
+{
+public:
+    Lifetime(int imageID, double x, double y, int level, GameWorld *p): Damageable(imageID, x, y, p)
+    {setLifetime(max(rand() % (300 - 10 * level), 50));}
+    
+    void setLifetime(int l) {lifetime=l;}
+    int getLifetime() {return lifetime;}
+    
+    virtual void recieveDamage(int hitPoints) {kill();}
+    virtual void editPlayerScore(){}
+    virtual void doSomething();
+    virtual void sound(){getWorld()->playSound(SOUND_GOT_GOODIE);}
+    virtual void doGoodiesThing(){}
+private:
+    int lifetime;
+};
+
+//RESTORE HEALTH GOODIE
+class RestoreHealthGoodie: public Lifetime
+{
+public:
+    RestoreHealthGoodie(double x, double y, int level, GameWorld *p): Lifetime(IID_RESTORE_HEALTH_GOODIE, x, y, level, p) {}
+    //virtual void doSomething();
+    virtual void editPlayerScore() {getWorld()->increaseScore(250);}
+    //virtual void doGoodiesThing(){} //TODO:tell socrates to restore health
+};
+
+//FLAME THROWER GOODIE
+class FlameThrowerGoodie: public Lifetime
+{
+public:
+    FlameThrowerGoodie(double x, double y, int level, GameWorld *p): Lifetime(IID_FLAME_THROWER_GOODIE, x, y, level, p) {}
+    //virtual void doSomething();
+    virtual void editPlayerScore() {getWorld()->increaseScore(300);}
+    //virtual void doGoodiesThing(){} //TODO:tell socrates to add 5 flame throwers to arsenal
+};
+
+//EXTRA LIFE GOODIE
+class ExtraLifeGoodie: public Lifetime
+{
+public:
+    ExtraLifeGoodie(double x, double y, int level, GameWorld *p): Lifetime(IID_EXTRA_LIFE_GOODIE, x, y, level, p)
+    {}
+    //virtual void doSomething();
+    virtual void editPlayerScore() {getWorld()->increaseScore(500);}
+    //virtual void doGoodiesThing(){getWorld()->incLives();}
+};
+
+//FUNGUS
+class Fungus: public Lifetime
+{
+public:
+    Fungus(double x, double y, int level, GameWorld *p): Lifetime(IID_FUNGUS, x, y, level, p)
+    {}
+    //virtual void doSomething();
+    virtual void editPlayerScore() {getWorld()->increaseScore(-50);}
+    //virtual void doGoodiesThing(){} //TODO:damage socrates by 20 points
+    virtual void sound(){}
+};
+
+//PROJECTILE CLASS -- base class for flame and spray
+class Projectile: public Actor
+{
+public:
+    Projectile(int imageID, double x, double y, Direction dir, GameWorld *p): Actor(imageID, x, y, dir, 1, p)
+    {}
+    virtual void doSomething();
+    void setTravelDistance(int d) { travelDistance = d; }
+    int getTravelDistance() {return travelDistance;}
+private:
+    int travelDistance;
+};
+
+//FLAME CLASS
+class Flame: public Projectile
+{
+public:
+    Flame(double x, double y, Direction dir, GameWorld *p) : Projectile(IID_FLAME, x, y, dir, p)
+    {setTravelDistance(32);}
+    
+    virtual void doSomething();
+};
+
+//SPRAY CLASS
+class Spray: public Projectile
+{
+public:
+    Spray(double x, double y, Direction dir, GameWorld *p) : Projectile(IID_SPRAY, x, y, dir, p)
+    {setTravelDistance(112);}
+    
+    virtual void doSomething();
+};
+
+
+
 
 
 #endif // ACTOR_H_
+
+
