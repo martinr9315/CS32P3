@@ -1,5 +1,7 @@
 #ifndef STUDENTWORLD_H_
 #define STUDENTWORLD_H_
+
+/*
 #include "Actor.h"//am i allowed to do this
 #include "GameWorld.h"
 
@@ -7,12 +9,23 @@
 #include <list>
 using namespace std;
 
-// Students:  Add code to this file, StudentWorld.cpp, Actor.h, and Actor.cpp
+// Students:  Add code to this file, StudentWorld.cpp, Actor.h, and Actor.cpp*/
+
+#include "GameWorld.h"
+#include "GraphObject.h"
+#include <string>
+#include <list>
+
+// Students:  Add code to this file, StudentWorld.cpp, Actor.h, and Actor.cpp
+
+class Actor;
+class Socrates; //QUESTION: can i do this
 
 class StudentWorld : public GameWorld
 {
 public:
     StudentWorld(std::string assetPath);
+    virtual ~StudentWorld();
     virtual int init();
     virtual int move();
     virtual void cleanUp();
@@ -23,9 +36,14 @@ public:
     void getValidNewSpot(double &x, double &y);
     void getCircumferenceSpot(double &x, double &y);
     Actor* amITouchingSomething(Actor *a);
+    Socrates* amITouchingSocrates(Actor *a);
+    Socrates* getSocratesP();
+    bool movementOverlap(Actor *a, int units);
+    bool leavingPetriDish(Actor *a);
+    Actor* closestFood(Actor *a);
 
 private:
-    list<Actor*> actorList;
+    std::list<Actor*> actorList;
     Socrates* pSocrates;
 };
 

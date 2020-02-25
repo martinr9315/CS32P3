@@ -1,9 +1,12 @@
 #include "StudentWorld.h"
+#include "Actor.h"
 #include "GameConstants.h"
 #include <string>
-#include <iostream> //just for now
-
+#include <iostream> // defines the overloads of the << operator
+#include <sstream>  // defines the type std::ostringstream
+#include <iomanip>  // defines the manipulator setw
 using namespace std;
+
 
 GameWorld* createStudentWorld(string assetPath)
 {
@@ -17,6 +20,11 @@ StudentWorld::StudentWorld(string assetPath)
 {
 }
 
+StudentWorld::~StudentWorld()
+{
+    cleanUp();
+}
+
 int StudentWorld::init()
 {
     //add socrates (not in actorList though)
@@ -24,12 +32,18 @@ int StudentWorld::init()
     
     int L = getLevel();
     
+    //figure out spawning of different kinds of salmonella
+    actorList.push_back(new AggressiveSalmonella(VIEW_WIDTH/2, VIEW_HEIGHT/2, this)); //FOR TESTING
+    actorList.push_back(new RegularSalmonella(VIEW_WIDTH/2-50, VIEW_HEIGHT/2, this)); //FOR TESTING
+    actorList.push_back(new Ecoli(VIEW_WIDTH/2-50, VIEW_HEIGHT/2-50, this)); //FOR TESTING
+    
     //QUESTION: does the order that the objects are added in init need to match the spec description
     //add dirt objects
     int numDirt = max(180 - 20 * L, 20);
     for (int i=0; i<numDirt; i++)
     {
         double x,y;
+    
         getRandomLocInDish(x, y);
         actorList.push_back(new Dirt(x,y,this));
     }
@@ -42,11 +56,6 @@ int StudentWorld::init()
         getValidNewSpot(x, y);
         actorList.push_back(new Food(x,y,this));
     }
-    
-    
-
-
-
     
     return GWSTATUS_CONTINUE_GAME;
 }
@@ -66,7 +75,19 @@ int StudentWorld::move()
 
     }
     
-    //TODO: finish this implementation thing
+    //delete all dead actors
+    it = actorList.begin();
+    while (it!=actorList.end())
+    {
+        if (!(*it)->isAlive())
+        {
+            delete *it;
+            it = actorList.erase(it);
+        }
+        else
+            it++;
+    }
+    
     
     /*
     2. Generate a random number between [0, ChanceFungus)
@@ -81,6 +102,7 @@ int StudentWorld::move()
         double x, y;
         getCircumferenceSpot(x, y);
         actorList.push_back(new Fungus(x, y, getLevel(), this));
+        
     }
      
     /*
@@ -102,12 +124,22 @@ int StudentWorld::move()
         getCircumferenceSpot(x, y);
         r = randInt(0,99);
         if (r<10)
-            actorList.push_back(new RestoreHealthGoodie(x, y, getLevel(), this));
+            actorList.push_back(new ExtraLifeGoodie(x, y, getLevel(), this));
         else if (r<40)
             actorList.push_back(new FlameThrowerGoodie(x, y, getLevel(), this));
         else
-            actorList.push_back(new ExtraLifeGoodie(x, y, getLevel(), this));
+            actorList.push_back(new RestoreHealthGoodie(x, y, getLevel(), this));
     }
+    
+    
+//update game stats
+    //Score: 004500 Level: 4 Lives: 3 health: 82 Sprays: 16 Flames: 4
+    ostringstream gameStats;
+    gameStats << "Score: " <<getScore()<<" Level: " <<getLevel()<<" Lives: " <<getLives()<<" Health: " <<pSocrates->getHealth()<<" Sprays: "<<pSocrates->getSprayCharges() <<" Flames: "<< pSocrates->getFlameThrowerCharges()<<endl;
+    string gameStatsStr = gameStats.str();
+    setGameStatText(gameStatsStr);
+    
+    
     
     
     return GWSTATUS_CONTINUE_GAME;
@@ -126,6 +158,8 @@ void StudentWorld::cleanUp()
     }
 }
 
+
+
 void StudentWorld::addActor(Actor* a) //QUESTION: will using an actor pointer to add a derived object (spray,fire,etc) limit its functionality to what is contained in Actor??
 {
     actorList.push_back(a);
@@ -133,9 +167,9 @@ void StudentWorld::addActor(Actor* a) //QUESTION: will using an actor pointer to
 
 void StudentWorld::getRandomLocInDish(double &x, double &y) const
 {
-    x = randInt(0, VIEW_HEIGHT);
-    y = randInt(0, VIEW_WIDTH);
-    double z = pow((x-VIEW_HEIGHT/2), 2) + pow((y-VIEW_WIDTH/2), 2);
+    x = randInt(0, VIEW_WIDTH);
+    y = randInt(0, VIEW_HEIGHT);
+    double z = pow((x-VIEW_WIDTH/2), 2) + pow((y-VIEW_HEIGHT/2), 2);
     if (z> pow(120, 2))
         getRandomLocInDish(x, y);
 }
@@ -177,10 +211,12 @@ void StudentWorld::getValidNewSpot(double &x, double &y)
 
 void StudentWorld::getCircumferenceSpot(double &x, double &y)
 {
-    getRandomLocInDish(x, y);
-       double dist = sqrt(pow(x-VIEW_WIDTH/2, 2)+pow(y-VIEW_HEIGHT/2, 2));
-     if (dist != 120)
-         getCircumferenceSpot(x, y);
+    x = randInt(0, VIEW_WIDTH);
+    y = randInt(0, VIEW_HEIGHT);
+    //QUESTION: WHY IS THIS NOT ON THE FULL CIRCUMFERENCE
+    double dist = sqrt(pow(x-VIEW_WIDTH/2, 2)+pow(y-VIEW_HEIGHT/2, 2));
+       if (static_cast<int>(dist) != VIEW_RADIUS)
+           getCircumferenceSpot(x, y);
 }
 
 Actor* StudentWorld::amITouchingSomething(Actor* a)
@@ -197,8 +233,87 @@ Actor* StudentWorld::amITouchingSomething(Actor* a)
         //if overlaps with any actors (other than itself) return the actor it overlaps with
         if ( (*it)!= a && overlap(aX, aY, x, y))
             return *it;
+        it++;
     }
     //if a doesnt overlap with any actor in actorList, return nullptr
     return nullptr;
 }
 
+Socrates* StudentWorld::getSocratesP()
+{
+    return pSocrates;
+}
+
+Socrates* StudentWorld::amITouchingSocrates(Actor *a)
+{
+    double aX = a-> getX();
+    double aY = a -> getY();
+    
+    double sX = pSocrates->getX();
+    double sY = pSocrates->getY();
+    
+    if (overlap(aX, aY, sX, sY))
+        return pSocrates;
+    else
+        return nullptr;
+}
+
+bool StudentWorld::movementOverlap(Actor *a, int units)
+{
+    //return true if there is overlap with a blocking object in actors predicted path
+    double x,y;
+    a->getPositionInThisDirection(a->getDirection(), units, x, y);
+
+    
+    list<Actor*>::iterator it = actorList.begin();
+    while (it!=actorList.end())
+    {
+        if ((*it)->blocksMovement())
+        {
+            double aX = (*it)->getX();
+            double aY = (*it)->getY();
+            double dist = sqrt(pow(x-aX,2)+pow(y-aY, 2));
+            if (dist <= SPRITE_WIDTH/2)
+                return true;
+        }
+        it++;
+    }
+    return false;
+}
+
+bool StudentWorld::leavingPetriDish(Actor *a)
+{
+    //return true if planned path puts actor outside of the view radius
+    double x,y;
+    a->getPositionInThisDirection(a->getDirection(), 3, x, y);
+    double dist = sqrt(pow(x-VIEW_WIDTH/2,2)+pow(y-VIEW_HEIGHT/2, 2));
+    if (dist >= VIEW_RADIUS)
+        return true;
+    return false;
+}
+
+Actor* StudentWorld::closestFood(Actor *a)
+{
+    double aX = a->getX();
+    double aY = a->getY();
+    
+    double minDist = 150;
+    Actor *closest = nullptr;
+    list<Actor*>::iterator it = actorList.begin();
+    while (it!=actorList.end())
+    {
+        if ((*it)->isEdible())
+        {
+            double x = (*it) -> getX();
+            double y = (*it) -> getY();
+            double dist = sqrt(pow(x-aX,2)+pow(y-aY, 2));
+            if (dist<minDist && dist<128)
+            {
+                minDist = dist;
+                closest = *it;
+            }
+        }
+        it++;
+    }
+    return closest;
+}
