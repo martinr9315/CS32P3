@@ -95,7 +95,36 @@ void Socrates::soundHurt()
     getWorld()->playSound(SOUND_PLAYER_HURT);
 }
 
-
+//PIT IMPLEMENTATION
+void Pit::doSomething()
+{
+    if (m_rsalmonella+m_asalmonella+m_ecoli == 0)
+        //inform studentWorld it has emmited everything???
+        kill();
+    int r = randInt(1, 50);
+    if (r==1)
+    {
+        //pick random of 3 types of bacteria
+        r = randInt(1, 3);
+        //spawn new regular salmonella
+        if (r==1)
+        {
+            getWorld()->addActor(new RegularSalmonella(getX(), getY(), getWorld()));
+            m_rsalmonella--;
+        }
+        else if (r==2)
+        {
+            getWorld()->addActor(new AggressiveSalmonella(getX(), getY(), getWorld()));
+            m_asalmonella--;
+        }
+        else
+        {
+            getWorld()->addActor(new Ecoli(getX(), getY(), getWorld()));
+            m_ecoli--;
+        }
+        getWorld()->playSound(SOUND_BACTERIUM_BORN);
+    }
+}
 
 //projectile implementations
 void Projectile::doSomething()

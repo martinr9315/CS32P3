@@ -32,11 +32,6 @@ int StudentWorld::init()
     
     int L = getLevel();
     
-    //figure out spawning of different kinds of salmonella
-    actorList.push_back(new AggressiveSalmonella(VIEW_WIDTH/2, VIEW_HEIGHT/2, this)); //FOR TESTING
-    actorList.push_back(new RegularSalmonella(VIEW_WIDTH/2-50, VIEW_HEIGHT/2, this)); //FOR TESTING
-    actorList.push_back(new Ecoli(VIEW_WIDTH/2-50, VIEW_HEIGHT/2-50, this)); //FOR TESTING
-    
     //QUESTION: does the order that the objects are added in init need to match the spec description
     //add dirt objects
     int numDirt = max(180 - 20 * L, 20);
@@ -46,6 +41,15 @@ int StudentWorld::init()
     
         getRandomLocInDish(x, y);
         actorList.push_back(new Dirt(x,y,this));
+    }
+    
+    //add pit objects
+    int numPit =  L;
+    for (int i=0; i<numPit; i++)
+    {
+        double x,y;
+        getValidNewSpot(x, y);
+        actorList.push_back(new Pit(x,y,this));
     }
     
     //add food objects
@@ -71,6 +75,8 @@ int StudentWorld::move()
     while (it!=actorList.end())
     {
         (*it)->doSomething();
+        if (!pSocrates->isAlive())
+            return GWSTATUS_PLAYER_DIED;
         it++;
 
     }

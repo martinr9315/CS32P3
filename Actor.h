@@ -43,6 +43,24 @@ private:
 };
 
 //TODO: pit class
+//PIT CLASS
+class Pit: public Actor
+{
+public:
+    Pit(double x, double y, StudentWorld *p):Actor(IID_PIT, x, y, 0, 1, p)
+    {
+        m_rsalmonella = 5;
+        m_asalmonella = 3;
+        m_ecoli = 2;
+    }
+    
+    virtual void doSomething();
+    
+private:
+    int m_rsalmonella;
+    int m_asalmonella;
+    int m_ecoli;
+};
 
 
 //FOOD CLASS
